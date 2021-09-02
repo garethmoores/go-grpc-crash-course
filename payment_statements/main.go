@@ -1,11 +1,12 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"log"
 	"net"
 
-	// commonpb "github.com/preslavmihaylov/go-grpc-crash-course/gen/common"
-	// "github.com/preslavmihaylov/go-grpc-crash-course/gen/payment_statements"
+	commonpb "github.com/preslavmihaylov/go-grpc-crash-course/gen/common"
 	"github.com/preslavmihaylov/go-grpc-crash-course/gen/payment_statements"
 	"google.golang.org/grpc"
 )
@@ -34,7 +35,43 @@ func setupPaymentStatementsServer() (*grpc.Server, net.Listener) {
 }
 
 func (s *server) CreateStatement(stream payment_statements.PaymentStatements_CreateStatementServer) error {
-	panic("not implemented")
+	log.Println("CreateStatement invoked...")
+
+	payments := []*commonpb.Payment{}
+
+	for {
+		payment, err := stream.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return fmt.Errorf("something went wrong with recv from payment stream: %w", err)
+		}
+		payments = append(payments, payment)
+	}
+	return stream.SendAndClose(toPaymentStatement(payments))
+}
+
+func toPaymentStatement(payments []*commonpb.Payment) *commonpb.PaymentStatement {
+	if len(payments) == 0 {
+		return &commonpb.PaymentStatement{
+			Data: "PAYMENT STATEMENT OF (unknown)\n\nNo earnings",
+		}
+	}
+
+	statement := fmt.Sprintf("PAYMENT STATEMENT OF %s\n\n", payments[0].GetUser().GetId())
+	statement += "PAYMENT HISTORY:\n"
+
+	balance := 0
+	for i, payment := range payments {
+		statement += fmt.Sprintf("\tPayment %d: %d$\n", i, payment.Amount)
+		balance += int(payment.Amount)
+	}
+
+	statement += fmt.Sprintf("\nFINAL BALANCE: %d\n", balance)
+
+	return &commonpb.PaymentStatement{
+		Data: statement,
+	}
 }
 
 type server struct{}

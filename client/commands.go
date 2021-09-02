@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 
 	casinopb "github.com/preslavmihaylov/go-grpc-crash-course/gen/casino"
@@ -70,11 +71,34 @@ func tokenBalance() (string, error) {
 }
 
 func payments() (string, error) {
-	panic("not implemented")
+	stream, err := client.GetPayments(context.Background(), &commonpb.User{Id: username})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to get payments: %w", err)
+	}
+
+	var payments []*commonpb.Payment
+
+	for {
+		payment, err := stream.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return "", fmt.Errorf("something went wrong with getting payments: %w", err)
+		}
+
+		payments = append(payments, payment)
+	}
+	return fmt.Sprintf("Here's your payment history:\n%v", paymentHistoryString(payments)), nil
 }
 
 func paymentStatement() (string, error) {
-	panic("not implemented")
+	statement, err := client.GetPaymentStatement(context.Background(), &commonpb.User{Id: username})
+	if err != nil {
+		return "", fmt.Errorf("couldn't get payment statement: %w", err)
+	}
+
+	return statement.GetData(), nil
 }
 
 func gamble() (string, error) {
