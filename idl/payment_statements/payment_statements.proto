@@ -5,9 +5,6 @@ option go_package = "github.com/preslavmihaylov/go-grpc-crash-course/gen/payment
 
 import "common/types.proto";
 
-/* TODO:
-  This file has a single service PaymentStatements.
-  The service contains a single routine CreateStatement which accepts a stream Payment and returns a PaymentStatement.
-
-  Both these types are defined in idl/common/types.proto.  
- */
+service PaymentStatements {
+  rpc CreateStatement(stream types.Payment) returns (types.PaymentStatement) {}
+}

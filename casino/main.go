@@ -1,11 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net"
 
-	// casinopb "github.com/preslavmihaylov/go-grpc-crash-course/gen/casino"
-	// commonpb "github.com/preslavmihaylov/go-grpc-crash-course/gen/common"
+	casinopb "github.com/preslavmihaylov/go-grpc-crash-course/gen/casino"
+	commonpb "github.com/preslavmihaylov/go-grpc-crash-course/gen/common"
 	"github.com/preslavmihaylov/go-grpc-crash-course/gen/payment_statements"
 	"google.golang.org/grpc"
 )
@@ -30,14 +31,30 @@ func main() {
 	grpcServer.Serve(lis)
 }
 
-// TODO: Setup the casino grpc server
 func setupCasinoServer() (*grpc.Server, net.Listener) {
-	panic("not implemented")
+	lis, err := net.Listen("tcp", casinoAddr)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	grpcServer := grpc.NewServer()
+	casinopb.RegisterCasinoServer(grpcServer, newCasinoServer())
+
+	return grpcServer, lis
 }
 
-// TODO: Setup the payment_statements.PaymentStatementsClient
 func setupPaymentStatementsClient() (payment_statements.PaymentStatementsClient, *grpc.ClientConn) {
-	panic("not implemented")
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithInsecure())
+	opts = append(opts, grpc.WithBlock())
+
+	conn, err := grpc.Dial(paymentStatementsAddr, opts...)
+
+	if err != nil {
+		log.Fatalf("fail to dial: %v", err)
+	}
+
+	return payment_statements.NewPaymentStatementsClient(conn), conn
 }
 
 func newCasinoServer() *casinoServer {
@@ -49,7 +66,30 @@ func newCasinoServer() *casinoServer {
 	}
 }
 
-// TODO: Implement the casinopb.CasinoServer interface
+func (c *casinoServer) BuyTokens(ctx context.Context, payment *commonpb.Payment) (*casinopb.Tokens, error) {
+	panic("not implemented")
+}
+
+func (c *casinoServer) Withdraw(ctx context.Context, withdrawReq *casinopb.WithdrawRequest) (*commonpb.Payment, error) {
+	panic("not implemented")
+}
+
+func (c *casinoServer) GetTokenBalance(ctx context.Context, user *commonpb.User) (*casinopb.Tokens, error) {
+	panic("not implemented")
+}
+
+func (c *casinoServer) GetPayments(user *commonpb.User, stream casinopb.Casino_GetPaymentsServer) error {
+	panic("not implmented")
+}
+
+func (c *casinoServer) GetPaymentStatement(ctx context.Context, user *commonpb.User) (*commonpb.PaymentStatement, error) {
+	panic("not implemented")
+}
+
+func (c *casinoServer) Gamble(stream casinopb.Casino_GambleServer) error {
+	panic("not implemented")
+}
+
 type casinoServer struct {
 	stockPrice int32
 

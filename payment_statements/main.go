@@ -6,6 +6,7 @@ import (
 
 	// commonpb "github.com/preslavmihaylov/go-grpc-crash-course/gen/common"
 	// "github.com/preslavmihaylov/go-grpc-crash-course/gen/payment_statements"
+	"github.com/preslavmihaylov/go-grpc-crash-course/gen/payment_statements"
 	"google.golang.org/grpc"
 )
 
@@ -20,10 +21,20 @@ func main() {
 	grpcServer.Serve(lis)
 }
 
-// TODO: Setup the payment statements grpc server
 func setupPaymentStatementsServer() (*grpc.Server, net.Listener) {
+	lis, err := net.Listen("tcp", paymentStatementsAddr)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	grpcServer := grpc.NewServer()
+	payment_statements.RegisterPaymentStatementsServer(grpcServer, &server{})
+
+	return grpcServer, lis
+}
+
+func (s *server) CreateStatement(stream payment_statements.PaymentStatements_CreateStatementServer) error {
 	panic("not implemented")
 }
 
-// TODO: Implement the payment_statements.PaymentStatementsServer interface
 type server struct{}
