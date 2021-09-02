@@ -1,12 +1,13 @@
 package main
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"log"
 
 	casinopb "github.com/preslavmihaylov/go-grpc-crash-course/gen/casino"
-
-	// commonpb "github.com/preslavmihaylov/go-grpc-crash-course/gen/common"
+	commonpb "github.com/preslavmihaylov/go-grpc-crash-course/gen/common"
 	"google.golang.org/grpc"
 )
 
@@ -31,15 +32,41 @@ func setupClient() (casinopb.CasinoClient, *grpc.ClientConn) {
 }
 
 func buyTokens(tokensCnt int) (string, error) {
-	panic("not implemented")
+	res, err := client.BuyTokens(context.Background(), &commonpb.Payment{
+		User: &commonpb.User{
+			Id: username,
+		},
+		Amount: int32(tokensCnt),
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("couldn't buy tokens: %w", err)
+	}
+
+	return fmt.Sprintf("Successfully bought %v tokens!", res.GetCount()), nil
 }
 
 func withdraw(tokensCnt int) (string, error) {
-	panic("not implemented")
+	res, err := client.Withdraw(context.Background(), &casinopb.WithdrawRequest{
+		User:      &commonpb.User{Id: username},
+		TokensCnt: int32(tokensCnt),
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("couldn't withdraw tokens: %w", err)
+	}
+
+	return fmt.Sprintf("Successfully withdrew %d tokens and got %d$!", tokensCnt, res.GetAmount()), nil
 }
 
 func tokenBalance() (string, error) {
-	panic("not implemented")
+	res, err := client.GetTokenBalance(context.Background(), &commonpb.User{Id: username})
+
+	if err != nil {
+		return "", fmt.Errorf("couldn't get token balance: %w", err)
+	}
+
+	return fmt.Sprintf("Your token balance is %v.", res.GetCount()), nil
 }
 
 func payments() (string, error) {

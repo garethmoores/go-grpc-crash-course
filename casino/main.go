@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net"
 
@@ -67,15 +68,42 @@ func newCasinoServer() *casinoServer {
 }
 
 func (c *casinoServer) BuyTokens(ctx context.Context, payment *commonpb.Payment) (*casinopb.Tokens, error) {
-	panic("not implemented")
+	log.Printf("BuyTokens invoked with payment %v\n", payment)
+
+	usrID := userID(payment.User.GetId())
+	tokens := payment.GetAmount() * tokensPerDollar
+
+	c.userToPayments[usrID] = append(c.userToPayments[usrID], -payment.Amount)
+	c.userToTokens[usrID] += tokens
+
+	return &casinopb.Tokens{Count: tokens}, nil
 }
 
 func (c *casinoServer) Withdraw(ctx context.Context, withdrawReq *casinopb.WithdrawRequest) (*commonpb.Payment, error) {
-	panic("not implemented")
+	toWithdraw := withdrawReq.GetTokensCnt()
+	log.Printf("Withdraw invoked with tokens %v\n", toWithdraw)
+
+	usrID := userID(withdrawReq.User.GetId())
+
+	if !c.hasEnoughTokens(usrID, toWithdraw) {
+		return nil, errors.New("not enough tokens to withdraw")
+	}
+
+	amount := toWithdraw / tokensPerDollar
+	c.userToTokens[usrID] -= toWithdraw
+	c.userToPayments[usrID] = append(c.userToPayments[usrID], amount)
+
+	return &commonpb.Payment{
+		User:   withdrawReq.User,
+		Amount: amount,
+	}, nil
 }
 
 func (c *casinoServer) GetTokenBalance(ctx context.Context, user *commonpb.User) (*casinopb.Tokens, error) {
-	panic("not implemented")
+	log.Printf("GetTokenBalance invoked with user %v\n", user)
+
+	usrID := userID(user.GetId())
+	return &casinopb.Tokens{Count: c.userToTokens[usrID]}, nil
 }
 
 func (c *casinoServer) GetPayments(user *commonpb.User, stream casinopb.Casino_GetPaymentsServer) error {
