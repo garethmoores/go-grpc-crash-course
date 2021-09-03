@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
+	"time"
 
 	casinopb "github.com/preslavmihaylov/go-grpc-crash-course/gen/casino"
 	commonpb "github.com/preslavmihaylov/go-grpc-crash-course/gen/common"
@@ -14,6 +16,7 @@ import (
 )
 
 type userID string
+type streamHandler func(casinopb.Casino_GambleServer) error
 
 var (
 	tokensPerDollar         = int32(5)
@@ -144,8 +147,80 @@ func (c *casinoServer) GetPaymentStatement(ctx context.Context, user *commonpb.U
 	return stream.CloseAndRecv()
 }
 
+func iterateStreamWithHandler(errc chan error, stream casinopb.Casino_GambleServer, handler streamHandler) {
+	for {
+		select {
+		case <-errc:
+			return
+		default:
+		}
+
+		err := handler(stream)
+
+		if err != nil {
+			errc <- err
+			break
+		}
+	}
+}
+
 func (c *casinoServer) Gamble(stream casinopb.Casino_GambleServer) error {
-	panic("not implemented")
+	log.Println("Gamble invoked...")
+
+	errc := make(chan error, 2)
+	go iterateStreamWithHandler(errc, stream, c.handleUserGamblingAction)
+	go iterateStreamWithHandler(errc, stream, c.incrementAndSendStockPrice)
+
+	err := <-errc
+	log.Println("Gambling ending with err " + err.Error())
+
+	return err
+}
+
+func (c *casinoServer) handleUserGamblingAction(stream casinopb.Casino_GambleServer) error {
+	action, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+
+	usrID := userID(action.User.GetId())
+	targetTokens := action.StocksCount * c.stockPrice
+
+	switch action.Type {
+	case casinopb.ActionType_BUY:
+		if !c.hasEnoughTokens(usrID, targetTokens) {
+			return stream.Send(&casinopb.GambleInfo{
+				Type:   casinopb.GambleType_ACTION_RESULT,
+				Result: &casinopb.ActionResult{Msg: "you don't have enough tokens"},
+			})
+		}
+
+		c.userToTokens[usrID] += targetTokens
+		c.userToStocks[usrID] -= action.StocksCount
+
+	default:
+		return errors.New("unknown operation")
+	}
+
+	return stream.Send(&casinopb.GambleInfo{
+		Type:   casinopb.GambleType_ACTION_RESULT,
+		Result: &casinopb.ActionResult{Msg: "operation executed successfully"},
+	})
+}
+
+func (c *casinoServer) incrementAndSendStockPrice(stream casinopb.Casino_GambleServer) error {
+	time.Sleep(10 * time.Second)
+	c.stockPrice += int32(rand.Intn(14) + 1)
+	c.stockPrice -= int32(rand.Intn(14) + 1)
+
+	log.Println("sending stock price", c.stockPrice)
+	return stream.Send(&casinopb.GambleInfo{
+		Type: casinopb.GambleType_STOCK_INFO,
+		Info: &casinopb.StockInfo{
+			Name:  "AwesomeStock",
+			Price: c.stockPrice,
+		},
+	})
 }
 
 type casinoServer struct {
